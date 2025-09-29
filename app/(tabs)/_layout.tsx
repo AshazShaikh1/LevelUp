@@ -1,35 +1,90 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { colors, fonts } from "../constants/theme";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+const TabsLayout = () => {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.secondary,
+        tabBarStyle: {
+          backgroundColor: colors.bg,
+          borderTopWidth: 0.2,
+          borderTopColor: colors.secondary,
+          height: 90,
+          paddingBottom: 30,
+          paddingTop: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontFamily: fonts.regular,
+        },
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+      }}
+    >
+      {/* Home */}
       <Tabs.Screen
-        name="index"
+        name='index'
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "",
+          tabBarIcon: ({ color, size, focused }) => (
+            <MaterialCommunityIcons
+              name="home"
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
+
+      {/* Explore */}
       <Tabs.Screen
-        name="explore"
+        name='explore'
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "",
+          tabBarIcon: ({ color, size, focused }) => (
+            <MaterialCommunityIcons
+              name="compass-outline"
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {/* History */}
+      <Tabs.Screen
+        name='history'
+        options={{
+          title: "",
+          tabBarIcon: ({ color, size, focused }) => (
+            <MaterialCommunityIcons
+              name="history"
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {/* Profile / Type Icon */}
+      <Tabs.Screen
+        name='profile'
+        options={{
+          title: "",
+          tabBarIcon: ({ color, size, focused }) => (
+            <MaterialCommunityIcons
+              name="account"
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
     </Tabs>
   );
-}
+};
+
+export default TabsLayout;
