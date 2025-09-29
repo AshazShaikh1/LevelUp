@@ -14,13 +14,15 @@ type SidePanelProps = {
 
 const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.78, 320)
 
+// --- Menu Data ---
 const MENU_ITEMS = [
     { name: 'Dashboard', icon: 'view-dashboard-outline' as const, target: '/(tabs)/index' },
     { name: 'Quests Manager', icon: 'format-list-checks' as const, target: '/(tabs)/quests-skills' },
     { name: 'Badges & Rewards', icon: 'trophy-outline' as const, target: 'badges' },
     { name: 'Progress Analysis', icon: 'chart-box-outline' as const, target: 'analytics' },
-]
+];
 
+// --- Helper Component: Menu Item ---
 const MenuItem = ({ icon, label, onPress, last }: { icon: any, label: string, onPress: () => void, last?: boolean }) => (
     <Pressable 
         style={({ pressed }) => [
@@ -37,10 +39,13 @@ const MenuItem = ({ icon, label, onPress, last }: { icon: any, label: string, on
     </Pressable>
 )
 
+// --- Main Side Panel Component ---
 const SidePanel: React.FC<SidePanelProps> = ({ visible, onClose }) => {
-    const { user, logout } = useAuth()
-    const insets = useSafeAreaInsets()
-
+    // UPDATED: Destructure userProfile here
+    const { user, userProfile, logout } = useAuth();
+    const insets = useSafeAreaInsets();
+    
+    // --- Reanimated Logic (Unchanged) ---
     const progress = useSharedValue(0)
     const overlayOpacity = useSharedValue(0)
 
@@ -49,8 +54,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ visible, onClose }) => {
             progress.value = withTiming(1, { duration: 220 })
             overlayOpacity.value = withTiming(1, { duration: 180 })
         } else {
-            progress.value = withTiming(0, { duration: 220 }) // smooth slide-out
-            overlayOpacity.value = withTiming(0, { duration: 180 })
+            progress.value = withTiming(0, { duration: 200 })
+            overlayOpacity.value = withTiming(0, { duration: 150 })
         }
     }, [visible])
 
@@ -63,47 +68,67 @@ const SidePanel: React.FC<SidePanelProps> = ({ visible, onClose }) => {
                 { translateX },
                 { rotateY: `${-rotateY}deg` },
             ],
-            zIndex: visible ? 100 : -1,
+            zIndex: visible ? 100 : -1, 
         }
     })
 
     const overlayStyle = useAnimatedStyle(() => ({
         opacity: overlayOpacity.value,
-        zIndex: visible ? 99 : -1,
+        zIndex: visible ? 99 : -1, 
     }))
+    // ------------------------------------
 
     const handleLogout = async () => {
-        onClose()
-        await logout()
-    }
-
+        onClose(); 
+        await logout();
+    };
+    
     const handleMenuItemPress = (target: string) => {
-        console.log(`Navigating to ${target}`)
-        onClose()
-    }
+        console.log(`Navigating to ${target}`); 
+        onClose();
+    };
+
+    const LOGOUT_BUTTON_MARGIN = 20; 
 
     return (
         <>
-            {/* Overlay */}
+            {/* Dark Overlay (Ensures click interception) */}
             <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents={visible ? 'auto' : 'none'}>
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
             </Animated.View>
 
-            {/* Sliding Panel */}
+            {/* Sliding Panel Container */}
             <Animated.View style={[styles.panel, panelStyle]}>
-                {/* Header */}
+                
+                {/* 1. Header: User Info Card */}
                 <View style={[styles.headerCard, { paddingTop: insets.top + 16 }]}>
                     <View style={styles.avatarWrap}>
-                        <Image source={require('../../assets/images/react-logo.png')} style={styles.avatar} contentFit="cover" />
+                        <Image
+                            source={require('../../assets/images/react-logo.png')} 
+                            style={styles.avatar}
+                            contentFit="cover"
+                        />
                     </View>
                     <View style={{ marginLeft: 14, flexShrink: 1 }}>
-                        <Text style={styles.name} numberOfLines={1}>{user?.email || "Guest User"}</Text>
-                        <Text style={styles.email} numberOfLines={1}>{user?.uid ? `ID: ${user.uid.substring(0, 8)}...` : 'Not Signed In'}</Text>
+                        {/* UPDATED: Display user name from profile, fall back to email */}
+                        <Text style={styles.name} numberOfLines={1}>
+                            {userProfile?.name || user?.email || "Guest User"} 
+                        </Text>
+                        <Text style={styles.email} numberOfLines={1}>
+                            {user?.uid ? `ID: ${user.uid.substring(0, 8)}...` : 'Not Signed In'}
+                        </Text>
                     </View>
                 </View>
 
-                {/* Scrollable Menu */}
-                <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+                {/* Scrollable Menu Area */}
+                <ScrollView 
+                    style={styles.scrollArea}
+                    showsVerticalScrollIndicator={false}
+                    // Padding bottom pushes scrollable content up, clearing space for the fixed logout button
+                    contentContainerStyle={{ paddingBottom: 20 }} 
+                >
+                    
+                    {/* 2. Menu Items List */}
                     <View style={styles.menuCard}>
                         <View style={styles.menu}>
                             {MENU_ITEMS.map((item, index) => (
@@ -112,21 +137,32 @@ const SidePanel: React.FC<SidePanelProps> = ({ visible, onClose }) => {
                                     icon={item.icon} 
                                     label={item.name}
                                     onPress={() => handleMenuItemPress(item.target)}
-                                    last={false}
+                                    last={index === MENU_ITEMS.length - 1}
                                 />
                             ))}
-                            <MenuItem icon={'cog-outline'} label={'Settings'} onPress={() => handleMenuItemPress('settings')} last={false} />
-
-                            {/* Logout button just below Settings */}
-                            <View style={{ marginTop: 16 }}>
-                                <Pressable style={styles.logoutButton} android_ripple={{ color: 'rgba(255,255,255,0.2)' }} onPress={handleLogout}>
-                                    <Ionicons name="log-out-outline" size={22} color={colors.bg} style={{ marginRight: 8 }} />
-                                    <Text style={styles.logoutButtonText}>LOG OUT</Text>
-                                </Pressable>
-                            </View>
+                            {/* Separate Settings Item */}
+                            <MenuItem 
+                                icon={'cog-outline'} 
+                                label={'Settings'} 
+                                onPress={() => handleMenuItemPress('settings')} 
+                                last 
+                            />
                         </View>
                     </View>
                 </ScrollView>
+
+                {/* 3. LOGOUT Button (FIXED POSITION at the bottom of the Panel) */}
+                <View style={[styles.logoutContainer, { bottom: insets.bottom + LOGOUT_BUTTON_MARGIN }]}>
+                    <Pressable 
+                        style={styles.logoutButton} 
+                        android_ripple={{ color: 'rgba(255,255,255,0.2)' }} 
+                        onPress={handleLogout}
+                    >
+                        <Ionicons name="log-out-outline" size={22} color={colors.bg} style={{ marginRight: 8 }} />
+                        <Text style={styles.logoutButtonText}>LOG OUT</Text>
+                    </Pressable>
+                </View>
+
             </Animated.View>
         </>
     )
@@ -143,7 +179,7 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         width: PANEL_WIDTH,
-        backgroundColor: colors.primary,
+        backgroundColor: colors.primary, 
         borderTopLeftRadius: 28,
         borderBottomLeftRadius: 28,
         shadowColor: '#000',
@@ -154,9 +190,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     scrollArea: {
-        flex: 1,
-        marginBottom: 20,
+        flex: 1, 
+        marginBottom: 80, // Space to clear the fixed logout button
     },
+    // --- Header (User Info) Card ---
     headerCard: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -169,7 +206,7 @@ const styles = StyleSheet.create({
         borderRadius: 28,
         overflow: 'hidden',
         borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.8)',
+        borderColor: 'rgba(255,255,255,0.8)'
     },
     avatar: { height: '100%', width: '100%', borderRadius: 28 },
     name: {
@@ -183,18 +220,19 @@ const styles = StyleSheet.create({
         color: '#E6E8EC',
         marginTop: 2,
     },
+    // --- Menu Items Card ---
     menuCard: {
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,255,255,0.12)', 
         borderRadius: 16,
         paddingHorizontal: 12,
-        paddingVertical: 4,
+        paddingVertical: 4, 
         marginBottom: 10,
     },
     menu: {},
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 14,
+        paddingVertical: 14, 
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: 'rgba(255,255,255,0.35)',
         gap: 12,
@@ -204,11 +242,23 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#FFFFFF',
     },
+    // --- Logout (Fixed) ---
+    logoutContainer: {
+        // FIXED POSITIONING: Always visible at the bottom of the side panel
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        backgroundColor: colors.primary, 
+        paddingHorizontal: 16,
+        paddingTop: 10, // Gives space above the button
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
+    },
     logoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#EF4444',
+        backgroundColor: '#EF4444', 
         padding: 14,
         borderRadius: 12,
         shadowColor: '#EF4444',

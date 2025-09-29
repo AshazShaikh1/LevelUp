@@ -5,14 +5,15 @@ import { auth, createInitialUserProfile, createUserWithEmailAndPassword } from '
 import { colors, fonts } from '../constants/theme';
 
 const SignupScreen = () => {
+  const [name, setName] = React.useState(''); // NEW: Name state
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
   const handleSignup = async () => {
-    if (!email || !password) {
-        setError("Please enter both email and password.");
+    if (!name || !email || !password) { // UPDATED: Check name presence
+        setError("Please enter your name, email, and password.");
         return;
     }
     if (password.length < 6) {
@@ -27,10 +28,10 @@ const SignupScreen = () => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // 2. CREATE USER PROFILE IN FIRESTORE: This flags them as a new user.
-        await createInitialUserProfile(user.uid);
+        // 2. CREATE USER PROFILE IN FIRESTORE: Pass the captured name
+        await createInitialUserProfile(user.uid, name); // UPDATED: Pass name
         
-        // The root layout will now see the new user + the new user profile and redirect.
+        // The root layout handles the redirect to createSkill.tsx
         
     } catch (e) {
         const errorMessage = (e as any).code?.replace('auth/', '').replace(/-/g, ' ') || "Sign up failed.";
@@ -46,7 +47,17 @@ const SignupScreen = () => {
       <View style={styles.container}>
         <Text style={styles.title}>Level Up Your Life</Text>
         <Text style={styles.subtitle}>Create an account and start your quest!</Text>
-
+        
+        {/* NEW: Name Input */}
+        <TextInput
+          style={styles.input}
+          placeholder="Your Display Name"
+          placeholderTextColor={colors.light}
+          value={name}
+          onChangeText={setName}
+          autoCapitalize="words"
+        />
+        
         <TextInput
           style={styles.input}
           placeholder="Email"

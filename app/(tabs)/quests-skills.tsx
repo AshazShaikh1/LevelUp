@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     FlatList,
     SafeAreaView,
@@ -8,17 +8,18 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { getSkillsListener } from '../../Firebase'; // Import the new listener
+import { useAuth } from '../_layout'; // Import Auth for UID
 import { colors, fonts } from '../constants/theme';
 
 // --- Component Imports ---
-// We assume these files are correctly created in the '../components' directory.
 import AddEditQuestModal from '../components/AddEditQuestModal';
 import AddSkillModal from '../components/AddSkillModal';
-import { Quest, Skill } from '../components/AppTypes'; // Import necessary Types
+import { Quest, Skill } from '../components/AppTypes';
 import SwipeableQuestCard from '../components/SwipeableQuestCard';
 
 
-// --- Component: Quests List Renderer (Using imported Swipeable Card) ---
+// --- Component: Quests List Renderer (Wrapper) ---
 interface QuestsListProps {
     quests: Quest[];
     skills: Skill[];
@@ -49,7 +50,6 @@ const QuestsList = ({ quests, skills, onEditQuest, onDeleteQuest, onToggleComple
                 data={quests}
                 keyExtractor={item => item.id}
                 renderItem={({ item }) => {
-                    // Find the linked skill to pass its color/icon to the card
                     const skill = skills.find(s => s.id === item.skillId);
                     return (
                         <SwipeableQuestCard
@@ -77,6 +77,7 @@ interface SkillsListProps {
 }
 
 const SkillsList = ({ skills, onAddSkill, onEditSkill, onDeleteSkill }: SkillsListProps) => {
+    // Check if skill data has been loaded/created
     if (skills.length === 0) {
         return (
             <View style={managerStyles.emptyStateContainer}>
@@ -118,7 +119,8 @@ const SkillsList = ({ skills, onAddSkill, onEditSkill, onDeleteSkill }: SkillsLi
                             <Ionicons name={item.icon as any} size={36} color={item.color} />
                         </View>
                         <Text style={skillStyles.skillTitle}>{item.name}</Text>
-                        <Text style={skillStyles.skillDetail}>Tap to Edit</Text>
+                        {/* FIX: Use currentLevel property */}
+                        <Text style={skillStyles.skillDetail}>Level: {item.currentLevel}</Text>
                     </TouchableOpacity>
                 )}
                 ListHeaderComponent={() => (
@@ -137,18 +139,31 @@ const SkillsList = ({ skills, onAddSkill, onEditSkill, onDeleteSkill }: SkillsLi
 
 // --- Main Component: Quests / Skills Manager ---
 const QuestsSkillsManager = () => {
-    // --- LOCAL STATE (TO BE REPLACED BY FIREBASE) ---
-    const [skills, setSkills] = useState<Skill[]>([]);
-    const [quests, setQuests] = useState<Quest[]>([]);
-    // --------------------------------------------------
+    const { user } = useAuth(); // Get user for UID
+    const [skills, setSkills] = useState<Skill[]>([]); // LIVE DATA
+    const [quests, setQuests] = useState<Quest[]>([]); // Still local for now
 
-    const [activeTab, setActiveTab] = useState('Quests');
+    const [activeTab, setActiveTab] = useState('Quests'); 
     const [isQuestModalVisible, setIsQuestModalVisible] = useState(false);
     const [isSkillModalVisible, setIsSkillModalVisible] = useState(false);
     const [questToEdit, setQuestToEdit] = useState<Quest | null>(null);
 
-    // --- CRUD Logic for Local State (Will soon become Firestore calls) ---
+    // --- NEW EFFECT: Fetch Skills in Real-Time ---
+    useEffect(() => {
+        if (user?.uid) {
+            // Start the listener and save the cleanup function
+            const unsubscribe = getSkillsListener(user.uid, (newSkills) => {
+                setSkills(newSkills); // Update state with real-time data
+            });
+
+            // The return function runs when the component unmounts
+            return unsubscribe;
+        }
+    }, [user?.uid]);
+
+    // --- CRUD Logic (Placeholder functions, will be replaced with Firestore calls next) ---
     const handleSaveQuest = (newQuest: Quest) => {
+        // TODO: REPLACE WITH FIRESTORE WRITE
         if (questToEdit) {
             setQuests(quests.map(q => q.id === newQuest.id ? newQuest : q));
             setQuestToEdit(null);
@@ -157,30 +172,21 @@ const QuestsSkillsManager = () => {
         }
     };
 
-    const handleEditQuest = (quest: Quest) => {
-        setQuestToEdit(quest);
-        setIsQuestModalVisible(true);
+    const handleEditQuest = (quest: Quest) => { setQuestToEdit(quest); setIsQuestModalVisible(true); };
+    const handleDeleteQuest = (id: string) => { setQuests(quests.filter(q => q.id !== id)); };
+    const handleToggleComplete = (id: string) => { setQuests(quests.map(q => q.id === id ? { ...q, isComplete: !q.isComplete } : q)); };
+    
+    const handleAddSkill = (newSkill: Skill) => { 
+        // This is only called when adding from the manager, not the onboarding.
+        // TODO: REPLACE with addSkill(user.uid, newSkill)
+        setSkills([...skills, newSkill]); 
     };
-
-    const handleDeleteQuest = (id: string) => {
-        setQuests(quests.filter(q => q.id !== id));
-    };
-
-    const handleToggleComplete = (id: string) => {
-        setQuests(quests.map(q => q.id === id ? { ...q, isComplete: !q.isComplete } : q));
-    };
-
-    const handleAddSkill = (newSkill: Skill) => {
-        setSkills([...skills, newSkill]);
-    };
-
-    const handleEditSkill = (skill: Skill) => {
-        console.log(`Editing skill: ${skill.name}. Launching modal...`);
-    };
-
-    const handleDeleteSkill = (id: string) => {
+    
+    const handleEditSkill = (skill: Skill) => { console.log(`Editing skill: ${skill.name}. Launching modal...`); };
+    const handleDeleteSkill = (id: string) => { 
+        // TODO: REPLACE with deleteDoc(doc(db, "users", user.uid, "skills", id))
         setSkills(skills.filter(s => s.id !== id));
-        setQuests(quests.filter(q => q.skillId !== id));
+        setQuests(quests.filter(q => q.skillId !== id)); 
     };
 
     return (
@@ -210,37 +216,36 @@ const QuestsSkillsManager = () => {
             </View>
 
             {/* Content Area */}
-            {activeTab === 'Quests' ?
-                <QuestsList
-                    quests={quests}
-                    skills={skills}
-                    onEditQuest={handleEditQuest}
+            {activeTab === 'Quests' ? 
+                <QuestsList 
+                    quests={quests} 
+                    skills={skills} 
+                    onEditQuest={handleEditQuest} 
                     onDeleteQuest={handleDeleteQuest}
                     onToggleComplete={handleToggleComplete}
-                />
-                :
-                <SkillsList
-                    skills={skills}
-                    onAddSkill={() => setIsSkillModalVisible(true)}
+                /> 
+                : 
+                <SkillsList 
+                    skills={skills} 
+                    onAddSkill={() => setIsSkillModalVisible(true)} 
                     onEditSkill={handleEditSkill}
                     onDeleteSkill={handleDeleteSkill}
                 />
             }
 
-
             {/* Floating Action Button (FAB) - For adding a new QUEST */}
             {activeTab === 'Quests' && skills.length > 0 && (
-                <TouchableOpacity
-                    style={managerStyles.fab}
+                <TouchableOpacity 
+                    style={managerStyles.fab} 
                     onPress={() => {
-                        setQuestToEdit(null); // Ensure we are in "Add" mode
+                        setQuestToEdit(null); 
                         setIsQuestModalVisible(true);
                     }}
                 >
                     <Ionicons name="add" size={30} color={colors.bg} />
                 </TouchableOpacity>
             )}
-
+            
             {/* Helper message for Quests if no skills exist */}
             {activeTab === 'Quests' && skills.length === 0 && (
                 <View style={managerStyles.fabNoSkills}>
@@ -251,10 +256,10 @@ const QuestsSkillsManager = () => {
             )}
 
 
-            {/* Modals (Imported Components) */}
-            <AddEditQuestModal
-                isVisible={isQuestModalVisible}
-                onClose={() => setIsQuestModalVisible(false)}
+            {/* Modals */}
+            <AddEditQuestModal 
+                isVisible={isQuestModalVisible} 
+                onClose={() => setIsQuestModalVisible(false)} 
                 onSaveQuest={handleSaveQuest}
                 skills={skills}
                 questToEdit={questToEdit}
@@ -269,9 +274,6 @@ const QuestsSkillsManager = () => {
 };
 
 // --- Stylesheet ---
-// Note: Styles for nested components are simplified here for brevity; assume they are 
-// defined and applied correctly within the component files or globally.
-
 const managerStyles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.bg, paddingTop: 10, },
     header: { paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: colors.bg, alignItems: 'center', },

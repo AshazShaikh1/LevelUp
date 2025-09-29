@@ -5,6 +5,8 @@ import { User } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-url-polyfill/auto';
+
+// Import Firebase functions and UserProfile type
 import { auth, getUserProfile, onAuthStateChanged, signOut, UserProfile } from '../Firebase';
 import { colors, fonts } from './constants/theme';
 
@@ -14,6 +16,8 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   isLoading: boolean;
   logout: () => Promise<void>;
+  // ADDED: Function to manually refresh profile data
+  refreshProfile: () => Promise<void>; 
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -21,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   userProfile: null,
   isLoading: true,
   logout: async () => {},
+  refreshProfile: async () => {}, // Placeholder
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -31,12 +36,26 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper function to fetch profile (extracted logic)
+  const fetchProfile = async (firebaseUser: User) => {
+    const profile = await getUserProfile(firebaseUser.uid);
+    setUserProfile(profile);
+  };
+  
+  // ADDED: Manual refresh function exposed to context
+  const refreshProfile = async () => {
+      if (user) {
+          await fetchProfile(user);
+      }
+  };
+
+  // Main listener logic
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        const profile = await getUserProfile(firebaseUser.uid);
-        setUserProfile(profile);
+        // Initial fetch profile on login/session restoration
+        await fetchProfile(firebaseUser);
       } else {
         setUserProfile(null);
       }
@@ -54,14 +73,15 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // EXPOSED refreshProfile
   return (
-    <AuthContext.Provider value={{ user, userProfile, isLoading, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, isLoading, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// --- 3. RootLayoutNav ---
+// --- 3. RootLayoutNav (Unchanged Redirect Logic) ---
 function RootLayoutNav() {
   const [fontsLoaded] = useFonts({
     'Poppins-Regular': require('../assets/fonts/Poppins-Regular.ttf'),
@@ -74,37 +94,29 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const appIsLoading = isLoading || !fontsLoaded;
-  const inTabsGroup = segments[0] === '(tabs)';
-  const inAuthGroup = segments[0] === '(auth)';
-  const isNewUserFlowRequired = user && userProfile && !userProfile.setupComplete;
 
   useEffect(() => {
     if (appIsLoading) return;
 
     SplashScreen.hideAsync();
 
-    // --- LOGIC START ---
+    const inAuthGroup = segments[0] === '(auth)';
+    
+    // User is new if they exist, their profile is loaded, and 'setupComplete' is false.
+    const isNewUserFlowRequired = user && userProfile && !userProfile.setupComplete;
+
     if (user) {
       if (isNewUserFlowRequired) {
-        // Logged in, new user, but NOT on an onboarding screen, redirect to start.
         const inNewUserFlow = segments[0] === '(app)' && segments[1] === 'new-user-flow';
-        if (!inNewUserFlow) {
-          console.log("➡ Redirecting to onboarding (createSkill)");
-          // FIX: Use the actual file name/path
-          router.replace('/(app)/new-user-flow/createSkill');
+        if (!inNewUserFlow) { 
+          router.replace('/(app)/new-user-flow/createSkill'); 
         }
       } else if (inAuthGroup) {
-        // Logged in, setup complete (or old user), redirect to Dashboard.
-        console.log("➡ Redirecting to tabs index");
         router.replace('/(tabs)');
       }
     } else if (!user && !inAuthGroup) {
-      // Logged out, but not on auth screen, redirect to login.
-      console.log("➡ Redirecting to login");
       router.replace('/(auth)/login');
     }
-    // --- LOGIC END ---
-
   }, [user, userProfile, appIsLoading, segments]);
 
   if (appIsLoading) {
