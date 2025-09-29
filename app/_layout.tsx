@@ -5,16 +5,13 @@ import { User } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-url-polyfill/auto';
-
-// Import Firebase functions and UserProfile type
-// NOTE: Ensure you have installed @react-native-async-storage/async-storage
 import { auth, getUserProfile, onAuthStateChanged, signOut, UserProfile } from '../Firebase';
 import { colors, fonts } from './constants/theme';
 
-// --- 1. Auth Context (Central State) ---
+// --- 1. Auth Context ---
 interface AuthContextType {
   user: User | null;
-  userProfile: UserProfile | null; // Added UserProfile to context
+  userProfile: UserProfile | null;
   isLoading: boolean;
   logout: () => Promise<void>;
 }
@@ -26,21 +23,18 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
 });
 
-// Hook for accessing Auth context easily
 export const useAuth = () => useContext(AuthContext);
 
-// --- 2. Auth Context Provider (Handles Firebase Listener & Profile Fetch) ---
+// --- 2. AuthProvider ---
 function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Effect to handle both auth state and profile fetching
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        // Fetch the user's profile immediately after login/sign up
         const profile = await getUserProfile(firebaseUser.uid);
         setUserProfile(profile);
       } else {
@@ -67,9 +61,8 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- 3. Redirect Logic and Font Checker Component ---
+// --- 3. RootLayoutNav ---
 function RootLayoutNav() {
-  // Your original font loading logic
   const [fontsLoaded] = useFonts({
     'Poppins-Regular': require('../assets/fonts/Poppins-Regular.ttf'),
     'Poppins-Medium': require('../assets/fonts/Poppins-Medium.ttf'),
@@ -79,42 +72,35 @@ function RootLayoutNav() {
   const { user, userProfile, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  
-  // App is loading if fonts aren't ready OR if we are checking auth/profile status
+
   const appIsLoading = isLoading || !fontsLoaded;
-  
-  // This effect handles navigation and hiding the splash screen
+
   useEffect(() => {
     if (appIsLoading) return;
 
-    // Hide the splash screen once everything is loaded
     SplashScreen.hideAsync();
 
     const inAuthGroup = segments[0] === '(auth)';
-    
-    // --- Onboarding Check ---
-    // User is new if they exist, their profile is loaded, and 'setupComplete' is false.
-    const isNewUserFlowRequired = user && userProfile && !userProfile.setupComplete;
 
+    // If user logged in
     if (user) {
-        if (isNewUserFlowRequired) {
-            // New user, ensure they are in the onboarding flow path
-            const inNewUserFlow = segments[0] === '(app)' as any && segments[1] === 'new-user-flow' as any;
-            if (!inNewUserFlow) { 
-                // Navigate to the first step of the onboarding flow
-                router.replace('/(app)/new-user-flow/create-skill' as any);
-            }
-        } else if (inAuthGroup) {
-            // Existing user OR new user setup is complete, redirect away from login screens
-            router.replace('/(tabs)/index' as any);
+      // Onboarding required
+      if (!userProfile?.setupComplete) {
+        const inNewUserFlow = segments[0] === '(app)' && segments[1] === 'new-user-flow';
+        if (!inNewUserFlow) {
+          console.log("➡ Redirecting to onboarding createSkill");
+          router.replace('/(app)/new-user-flow/createSkill');
         }
+      } else if (inAuthGroup) {
+        console.log("➡ Redirecting to tabs index");
+        router.replace('/(tabs)');
+      }
     } else if (!user && !inAuthGroup) {
-        // User is NOT logged in, redirect to the login screen
-        router.replace('/(auth)/login');
+      console.log("➡ Redirecting to login");
+      router.replace('/(auth)/login');
     }
-  }, [user, userProfile, appIsLoading, segments]);
+  }, [user, userProfile, fontsLoaded, isLoading, segments]);
 
-  // Show a loading indicator while checking auth status OR loading fonts
   if (appIsLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -124,13 +110,11 @@ function RootLayoutNav() {
     );
   }
 
-  // The Slot renders the entire screen content based on the current path ((tabs), (auth), or (app))
   return <Slot />;
 }
 
-// --- 4. Root Export (Wraps app in Auth Provider) ---
+// --- 4. Root ---
 export default function Root() {
-  // Prevent native splash screen from auto-hiding before asset loading is complete
   SplashScreen.preventAutoHideAsync();
 
   return (
