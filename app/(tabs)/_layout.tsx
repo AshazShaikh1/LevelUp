@@ -1,14 +1,16 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { colors, fonts } from "../constants/theme";
+
+// The layout file should be minimal and only import components needed for the tab bar structure itself.
 
 const TabsLayout = () => {
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.secondary,
+        tabBarInactiveTintColor: colors.light,
         tabBarStyle: {
           position: 'absolute',
           left: 16,
@@ -33,14 +35,14 @@ const TabsLayout = () => {
         headerShown: false,
       }}
     >
-      {/* Home */}
+      {/* 1. DASHBOARD / HOME (Skill Analysis Summary) */}
       <Tabs.Screen
         name='index'
         options={{
-          title: "",
+          title: "Dashboard",
           tabBarIcon: ({ color, size, focused }) => (
             <MaterialCommunityIcons
-              name="home"
+              name={focused ? "view-dashboard" : "view-dashboard-outline"}
               size={size}
               color={color}
             />
@@ -48,50 +50,23 @@ const TabsLayout = () => {
         }}
       />
 
-      {/* Explore */}
+      {/* 2. QUESTS & SKILLS MANAGEMENT (Now using the correct file name) */}
       <Tabs.Screen
-        name='explore'
+        name='quests-skills'
         options={{
-          title: "",
+          title: "Quests",
           tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons
-              name="compass-outline"
+            <Ionicons
+              name={focused ? "list-circle" : "list-circle-outline"}
               size={size}
               color={color}
             />
           ),
         }}
       />
+      
+      {/* Note: 'explore' and 'history' screens have been commented out or removed here */}
 
-      {/* History */}
-      <Tabs.Screen
-        name='history'
-        options={{
-          title: "",
-          tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons
-              name="history"
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-
-      {/* Profile / Type Icon */}
-      <Tabs.Screen
-        name='profile'
-        options={{
-          title: "",
-          tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons
-              name="account"
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
     </Tabs>
   );
 };
