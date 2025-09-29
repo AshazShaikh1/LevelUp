@@ -37,3 +37,4 @@ export const availableColors = [
 ];
 
 export const getRandomColor = () => availableColors[Math.floor(Math.random() * availableColors.length)];
+export default null;
