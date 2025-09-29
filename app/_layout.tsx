@@ -74,32 +74,38 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const appIsLoading = isLoading || !fontsLoaded;
+  const inTabsGroup = segments[0] === '(tabs)';
+  const inAuthGroup = segments[0] === '(auth)';
+  const isNewUserFlowRequired = user && userProfile && !userProfile.setupComplete;
 
   useEffect(() => {
     if (appIsLoading) return;
 
     SplashScreen.hideAsync();
 
-    const inAuthGroup = segments[0] === '(auth)';
-
-    // If user logged in
+    // --- LOGIC START ---
     if (user) {
-      // Onboarding required
-      if (!userProfile?.setupComplete) {
+      if (isNewUserFlowRequired) {
+        // Logged in, new user, but NOT on an onboarding screen, redirect to start.
         const inNewUserFlow = segments[0] === '(app)' && segments[1] === 'new-user-flow';
         if (!inNewUserFlow) {
-          console.log("➡ Redirecting to onboarding createSkill");
+          console.log("➡ Redirecting to onboarding (createSkill)");
+          // FIX: Use the actual file name/path
           router.replace('/(app)/new-user-flow/createSkill');
         }
       } else if (inAuthGroup) {
+        // Logged in, setup complete (or old user), redirect to Dashboard.
         console.log("➡ Redirecting to tabs index");
         router.replace('/(tabs)');
       }
     } else if (!user && !inAuthGroup) {
+      // Logged out, but not on auth screen, redirect to login.
       console.log("➡ Redirecting to login");
       router.replace('/(auth)/login');
     }
-  }, [user, userProfile, fontsLoaded, isLoading, segments]);
+    // --- LOGIC END ---
+
+  }, [user, userProfile, appIsLoading, segments]);
 
   if (appIsLoading) {
     return (

@@ -1,7 +1,7 @@
 import { Stack, router } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth, createUserWithEmailAndPassword } from '../../Firebase';
+import { auth, createInitialUserProfile, createUserWithEmailAndPassword } from '../../Firebase';
 import { colors, fonts } from '../constants/theme';
 
 const SignupScreen = () => {
@@ -23,8 +23,15 @@ const SignupScreen = () => {
     setLoading(true);
     setError('');
     try {
-        await createUserWithEmailAndPassword(auth, email, password);
-        // Auth listener in _layout.tsx handles redirection upon success
+        // 1. Create user in Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // 2. CREATE USER PROFILE IN FIRESTORE: This flags them as a new user.
+        await createInitialUserProfile(user.uid);
+        
+        // The root layout will now see the new user + the new user profile and redirect.
+        
     } catch (e) {
         const errorMessage = (e as any).code?.replace('auth/', '').replace(/-/g, ' ') || "Sign up failed.";
         setError(errorMessage);
